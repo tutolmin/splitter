@@ -29,121 +29,167 @@ int yyparse( void);
 YY_BUFFER_STATE yy_scan_string(char *, size_t);
 void yy_delete_buffer(YY_BUFFER_STATE buffer);
 
+char tmp_str[BUFSIZ]="";
 char json_str[BUFSIZ]="";
-char pgn_str[BUFSIZ]="";
+char moves_str[BUFSIZ]="";
+char tags_str[BUFSIZ]="";
 
 %}
 
 %start games
 
-%token TAG MOVE NUMBER RESULT NEWLINE COMMA QUOTE BRACKET HASHTAG SAN
+%token TAG SAN NUMBER RESULT NEWLINE COMMA QUOTE BRACKET HASHTAG LAN
 
-%union { char* s; }
+%union { char* s; char* k; }
 
-%token <s> TAG MOVE NUMBER RESULT NEWLINE COMMA QUOTE BRACKET HASHTAG SAN
+%token <k> NEWLINE
+%token <s> TAG SAN NUMBER RESULT BRACKET COMMA QUOTE HASHTAG LAN
 
 %%                   /* beginning of rules section */
 
-games:  tags
+games:	
 	|
-	json
-	|
-	moves
-	|
-	NEWLINE
-	;
-json:   BRACKET
+	tags NEWLINE json NEWLINE moves NEWLINE
 	{
+	strcat( tags_str, $2);
+        syslog( LOG_NOTICE, "Flush pgn tags: %d %s", strlen( tags_str), tags_str);
+        syslog( LOG_NOTICE, "Flush pgn moves: %d %s", strlen( moves_str), moves_str);
+	strcpy( tags_str, "");
+	strcpy( moves_str, "");
+	}
+	|
+	games tags NEWLINE json NEWLINE moves NEWLINE
+	{
+	strcat( tags_str, $2);
+        syslog( LOG_NOTICE, "Flush pgn tags: %d %s", strlen( tags_str), tags_str);
+        syslog( LOG_NOTICE, "Flush pgn moves: %d %s", strlen( moves_str), moves_str);
+	strcpy( tags_str, "");
+	strcpy( moves_str, "");
+	}
+	;
+json:   BRACKET BRACKET NEWLINE
+	{
+	strcat( json_str, "[");
+	strcat( json_str, $2);
+	strcat( json_str, $3);
+        syslog( LOG_DEBUG, "Flush json: %d %s", strlen( json_str), json_str);
 	strcpy( json_str, "");
+	}
+	|
+	BRACKET lan_str NEWLINE
+	{
+	sprintf( tmp_str, "%s%s\n", $1, json_str);
+	strcpy( json_str, tmp_str);
+        syslog( LOG_DEBUG, "bracket lan_str_newline");
+	}
+	|
+	json lan_str NEWLINE
+	{
+	strcat( json_str, $3);
+        syslog( LOG_DEBUG, "lan_str_newline '%s'", $3);
+	}
+	|
+	json lan_str BRACKET NEWLINE
+	{
+	sprintf( tmp_str, "%s%s\n", json_str, $3);
+	strcpy( json_str, tmp_str);
+        syslog( LOG_DEBUG, "Flush json: %d %s", strlen( json_str), json_str);
+	strcpy( json_str, "");
+	}
+	;
+lan_str: QUOTE
+	{
 	strcat( json_str, $1);
 	}
 	|
-	json QUOTE
+	lan_str LAN
 	{
 	strcat( json_str, $2);
 	}
 	|
-	json SAN
+	lan_str QUOTE
 	{
 	strcat( json_str, $2);
 	}
 	|
-	json COMMA
+	lan_str COMMA
 	{
 	strcat( json_str, $2);
-	}
-	|
-	json BRACKET
-	{
-	strcat( json_str, $2);
-	}
-	|
-	json NEWLINE
-	{
-        syslog( LOG_NOTICE, "Flush json: %s", json_str);
 	}
 	;
-tags:   TAG
+tags:   TAG NEWLINE
 	{
-	strcat( pgn_str, $1);
-	strcat( pgn_str, "\n");
+	strcat( tags_str, $1);
+	strcat( tags_str, $2);
 	}
 	|
-	HASHTAG
-	|
-	tags TAG
+	tags HASHTAG NEWLINE
 	{
-	strcat( pgn_str, $2);
+//	strcat( tags_str, $2);
 	}
 	|
-	tags NEWLINE
+	tags TAG NEWLINE
 	{
-	strcat( pgn_str, "\n");
+	strcat( tags_str, $2);
+	strcat( tags_str, $3);
 	}
 	;
-moves:  RESULT
+moves:  RESULT NEWLINE
 	{
-	strcat( pgn_str, $1);
-        syslog( LOG_NOTICE, "Flush pgn.");
-	strcpy( pgn_str, "");
+	strcat( moves_str, $1);
+	strcat( moves_str, $2);
 	}
 	|
-	MOVE
+	san_str RESULT NEWLINE
 	{
-	strcat( pgn_str, $1);
-	strcat( pgn_str, " ");
+	strcat( moves_str, $2);
+	strcat( moves_str, $3);
 	}
 	|
-	NUMBER MOVE
+	san_str NEWLINE
 	{
-	strcat( pgn_str, $1);
-	strcat( pgn_str, " ");
-	strcat( pgn_str, $2);
-	strcat( pgn_str, " ");
+	strcat( moves_str, $2);
 	}
 	|
-	moves NUMBER
+	moves san_str NEWLINE
 	{
-	strcat( pgn_str, $2);
-	strcat( pgn_str, " ");
+	strcat( moves_str, $3);
 	}
 	|
-	moves MOVE
+	moves RESULT NEWLINE
 	{
-	strcat( pgn_str, $2);
-	strcat( pgn_str, " ");
+	strcat( moves_str, $2);
+	strcat( moves_str, $3);
 	}
 	|
-	moves RESULT
+	moves san_str RESULT NEWLINE
 	{
-	strcat( pgn_str, $2);
-        syslog( LOG_NOTICE, "Flush pgn: %d %s", strlen( pgn_str), pgn_str);
-	strcpy( pgn_str, "");
+	strcat( moves_str, $3);
+	strcat( moves_str, $4);
+	}
+	;
+san_str: SAN
+	{
+	strcat( moves_str, $1);
+	strcat( moves_str, " ");
 	}
 	|
-	moves NEWLINE
+	NUMBER
 	{
-	strcat( pgn_str, "\n");
+	strcat( moves_str, $1);
+	strcat( moves_str, " ");
+	}
+	|
+	san_str NUMBER
+	{
+	strcat( moves_str, $2);
+	strcat( moves_str, " ");
+	}
+	|
+	san_str SAN
+	{
+	strcat( moves_str, $2);
+	strcat( moves_str, " ");
 	}
 	;
 %%
@@ -158,7 +204,10 @@ int main( int argc, char **argv) {
 
         // Evaluator starting
         syslog( LOG_NOTICE, "Program start.");
-
+	
+        // Parse the line
+        yyparse();
+/*
 	// Forever cycle
 	while( 1) {
 
@@ -191,14 +240,13 @@ int main( int argc, char **argv) {
 	    }
 	}
         }
-
+*/
 	return(0);
 }
 
 int yylex( void);
 
 int yyerror( const char *s)
-//char *s;
 {
   syslog( LOG_ERR, "yyerror: %s", s);
 
@@ -207,8 +255,7 @@ int yyerror( const char *s)
 
 int yywrap( void)
 {
-//  sprintf( logstr, "yywrap");
-//  syslog( LOG_DEBUG, logstr);
+  syslog( LOG_NOTICE, "Program end.");
 
   return(1);
 }

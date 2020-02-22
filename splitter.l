@@ -5,6 +5,7 @@
 #include "y.tab.h"
 
 char s[BUFSIZ]="";
+char k[BUFSIZ]="";
 
 %}
 %%
@@ -15,16 +16,16 @@ char s[BUFSIZ]="";
             return(NUMBER);
 	}
 ([a-h][1-8]){2}[BNRQ]? {
+	    syslog( LOG_DEBUG, "Read lan: %s", yytext);
+            strcpy(s, yytext); 
+	    yylval.s = s;
+            return(LAN);
+	}
+[a-h1-8pbnrqkPBNRQKxO=\+\-]+ {
 	    syslog( LOG_DEBUG, "Read san: %s", yytext);
             strcpy(s, yytext); 
 	    yylval.s = s;
             return(SAN);
-	}
-[a-h1-8pbnrqkPBNRQKxO=\+\-]+ {
-	    syslog( LOG_DEBUG, "Read move: %s", yytext);
-            strcpy(s, yytext); 
-	    yylval.s = s;
-            return(MOVE);
 	}
 (1-0|0-1|1\/2-1\/2)$ {
 	    syslog( LOG_DEBUG, "Read result: %s", yytext);
@@ -32,31 +33,31 @@ char s[BUFSIZ]="";
 	    yylval.s = s;
             return(RESULT);
 	}
-[\[\]]   { 
+[\[\]] { 
 	    syslog( LOG_DEBUG, "Read bracket");
             strcpy(s, yytext); 
 	    yylval.s = s;
             return(BRACKET);
 	}
-[\"]   { 
+[\"] { 
 	    syslog( LOG_DEBUG, "Read quote");
             strcpy(s, yytext); 
 	    yylval.s = s;
             return(QUOTE);
 	}
-[,]   { 
+[,] { 
 	    syslog( LOG_DEBUG, "Read comma");
             strcpy(s, yytext); 
 	    yylval.s = s;
             return(COMMA);
 	}
-[\n]   { 
+[\n] { 
 	    syslog( LOG_DEBUG, "Read new line");
-            strcpy(s, yytext); 
-	    yylval.s = s;
+            strcpy(k, yytext); 
+	    yylval.k = k;
             return(NEWLINE);
 	}
-[ ]  { 
+[ ] { 
 //	    syslog( LOG_DEBUG, "Read space");
 //          return(SPACE);
 	}
