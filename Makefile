@@ -1,6 +1,6 @@
 BASE=splitter
 EXEC=splitter
-LIBS=-lfl -lm
+LIBS=-lfl -lm -lcrypto 
 INCLUDE=-std=gnu99
 CC=gcc
 

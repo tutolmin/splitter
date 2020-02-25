@@ -4,8 +4,8 @@
 #include <syslog.h>
 #include "y.tab.h"
 
-char s[BUFSIZ]="";
-char k[BUFSIZ]="";
+char s[80]="";
+char k[80]="";
 
 %}
 %%
@@ -67,7 +67,14 @@ char k[BUFSIZ]="";
 	    yylval.s = s;
             return(HASHTAG);
 	}
-^\[[[:alpha:]]+\ \"[[:print:]]*\"\]$ {
+^\[(Event|Site|Date|Round|White|Black|Result)\ \"[[:print:]\x80-\xf3]*\"\]$ {
+// \x80-\xbf\xc2-\xdf\xe0-\xef\xf0-\xf4
+	    syslog( LOG_DEBUG, "Read roster tag: %s", yytext);
+            strcpy(s, yytext); 
+	    yylval.s = s;
+            return(ROSTER);
+	}
+^\[[[:alpha:]]+\ \"[[:print:]\x80-\xf3]*\"\]$ {
 	    syslog( LOG_DEBUG, "Read tag: %s", yytext);
             strcpy(s, yytext); 
 	    yylval.s = s;
