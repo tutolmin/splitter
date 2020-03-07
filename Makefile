@@ -1,8 +1,8 @@
 BASE=splitter
 EXEC=splitter
-LIBS=-lfl -lm -lcrypto 
-INCLUDE=-std=gnu99
-CC=gcc
+LIBS=-lfl -lm -lcrypto -L/usr/local/lib -lreflex 
+INCLUDE=-std=gnu99 -I/usr/local/include/reflex
+CC=c++
 
 DEBUGINFO=-g
 
@@ -20,24 +20,24 @@ DEBUGINFO=-g
 OPTIMISE=-O3
 
 CFLAGS+=-c -pedantic -Wall -Wshadow -Wformat -Wpointer-arith \
-	-Wstrict-prototypes -Wmissing-prototypes -Wwrite-strings \
-	-Wsign-compare -Wimplicit-function-declaration $(DEBUGINFO) \
-	-I/usr/local/lib/ansi-include -std=gnu99 \
+	-Wwrite-strings \
+	-Wsign-compare $(DEBUGINFO) \
+	-I/usr/local/lib/ansi-include \
 	-D__linux__ \
         $(OPTIMISE)
 	 
-LEX=flex
+LEX=reflex
 BYACC=byacc
 $(EXEC)		: y.tab.o lex.yy.o
 			$(CC) $(DEBUGINFO) -o $(EXEC) lex.yy.o y.tab.o $(LIBS)
-lex.yy.o	: lex.yy.c
-			$(CC) $(CFLAGS) -c lex.yy.c
-lex.yy.c	: $(BASE).l
+lex.yy.o	: lex.yy.cpp
+			$(CC) $(CFLAGS) -c lex.yy.cpp
+lex.yy.cpp	: $(BASE).l
 			$(LEX) $(BASE).l
 y.tab.o		: y.tab.c
 			$(CC) $(CFLAGS) -c y.tab.c
 y.tab.c		: $(BASE).y
 			$(BYACC) -v -d $(BASE).y
 clean		:
-			rm -f ./lex.yy.c ./y.tab.c ./y.output ./y.tab.h ./*.o ./*.core ./*~ ./*.out
+			rm -f ./lex.yy.cpp ./y.tab.c ./y.output ./y.tab.h ./*.o ./*.core ./*~ ./*.out
 

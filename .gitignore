@@ -3,6 +3,7 @@ splitter
 *.core
 *.swp
 lex.yy.c
+lex.yy.cpp
 y.tab.c
 y.output
 y.tab.h

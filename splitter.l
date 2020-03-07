@@ -8,7 +8,13 @@ char s[80]="";
 char k[80]="";
 
 %}
+
+%flex
+%bison
+%unicode
+
 %%
+
 [[:digit:]]+\. {
 	    syslog( LOG_DEBUG, "Read number: %s", yytext);
             strcpy(s, yytext); 
@@ -27,7 +33,7 @@ char k[80]="";
 	    yylval.s = s;
             return(SAN);
 	}
-(1-0|0-1|1\/2-1\/2)$ {
+(1-0|0-1|1\/2-1\/2|\*)$ {
 	    syslog( LOG_DEBUG, "Read result: %s", yytext);
             strcpy(s, yytext); 
 	    yylval.s = s;
@@ -35,8 +41,6 @@ char k[80]="";
 	}
 [\[\]] { 
 	    syslog( LOG_DEBUG, "Read bracket");
-            strcpy(s, yytext); 
-	    yylval.s = s;
             return(BRACKET);
 	}
 [\"] { 
@@ -61,20 +65,20 @@ char k[80]="";
 //	    syslog( LOG_DEBUG, "Read space");
 //          return(SPACE);
 	}
-^\[HashCode\ \"[0-9a-f]{8}\"\]$ {
+^\[HashCode\s\"[0-9a-f]{8}\"\]$ {
 	    syslog( LOG_DEBUG, "Read hash tag: %s", yytext);
             strcpy(s, yytext); 
 	    yylval.s = s;
             return(HASHTAG);
 	}
-^\[(Event|Site|Date|Round|White|Black|Result)\ \"[[:print:]\x80-\xf3]*\"\]$ {
+^\[(Event|Site|Date|Round|White|Black|Result)\s\".*?\"\]$ {
 // \x80-\xbf\xc2-\xdf\xe0-\xef\xf0-\xf4
 	    syslog( LOG_DEBUG, "Read roster tag: %s", yytext);
             strcpy(s, yytext); 
 	    yylval.s = s;
             return(ROSTER);
 	}
-^\[[[:alpha:]]+\ \"[[:print:]\x80-\xf3]*\"\]$ {
+^\[[[:alpha:]]+\s\".*?\"\]$ {
 	    syslog( LOG_DEBUG, "Read tag: %s", yytext);
             strcpy(s, yytext); 
 	    yylval.s = s;

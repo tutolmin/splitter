@@ -1,16 +1,4 @@
 %{
-/*
-#include <signal.h>
-#include <stdlib.h>
-#include <fcntl.h>
-#include <sys/time.h>
-#include <time.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <errno.h>
-#include <math.h>
-*/
-
 #include <stdio.h>
 #include <unistd.h>
 #include <syslog.h>
@@ -31,11 +19,14 @@ YY_BUFFER_STATE yy_scan_string(char *, size_t);
 void yy_delete_buffer(YY_BUFFER_STATE buffer);
 
 char tmp_str[BUFSIZ]="";
-char json_str[BUFSIZ-2]="";
+char json_str[BUFSIZ-4]="";
 char moves_str[BUFSIZ]="";
 char tags_str[BUFSIZ]="";
 char roster_str[BUFSIZ]="";
-char roster_hash[BUFSIZ]="";
+char roster_hash[33]="";
+char hashcode[9]="";
+
+void flush_files( void);
 
 %}
 
@@ -46,84 +37,48 @@ char roster_hash[BUFSIZ]="";
 %union { char* s; char* k; }
 
 %token <k> NEWLINE
-%token <s> SAN LAN NUMBER RESULT BRACKET COMMA QUOTE TAG HASHTAG ROSTER
+%token <s> SAN LAN NUMBER RESULT COMMA QUOTE TAG HASHTAG ROSTER
 
 %%                   /* beginning of rules section */
 
-games:	
-	|
-	tags NEWLINE moves NEWLINE
-	{
-	strcat( tags_str, $2);
-        syslog( LOG_NOTICE, "Flush pgn tags: %ld %s", strlen( tags_str), tags_str);
-        syslog( LOG_NOTICE, "Flush pgn moves: %ld %s", strlen( moves_str), moves_str);
-	strcpy( tags_str, "");
-	strcpy( moves_str, "");
-	strcpy( roster_str, "");
-        strcpy( roster_hash, "");
-	}
-	|
-	games tags NEWLINE moves NEWLINE
-	{
-	strcat( tags_str, $3);
-        syslog( LOG_NOTICE, "Flush pgn tags: %ld %s", strlen( tags_str), tags_str);
-        syslog( LOG_NOTICE, "Flush pgn moves: %ld %s", strlen( moves_str), moves_str);
-	strcpy( tags_str, "");
-	strcpy( moves_str, "");
-	strcpy( roster_str, "");
-        strcpy( roster_hash, "");
-	}
-	|
-	tags NEWLINE json NEWLINE moves NEWLINE
-	{
-	strcat( tags_str, $2);
-        syslog( LOG_NOTICE, "Flush pgn tags: %ld %s", strlen( tags_str), tags_str);
-        syslog( LOG_NOTICE, "Flush pgn moves: %ld %s", strlen( moves_str), moves_str);
-	strcpy( tags_str, "");
-	strcpy( moves_str, "");
-	strcpy( roster_str, "");
-        strcpy( roster_hash, "");
-	}
+games:  tags NEWLINE json NEWLINE moves NEWLINE
+        {
+	flush_files();
+        }
 	|
 	games tags NEWLINE json NEWLINE moves NEWLINE
-	{
-	strcat( tags_str, $3);
-        syslog( LOG_NOTICE, "Flush pgn tags: %ld %s", strlen( tags_str), tags_str);
-        syslog( LOG_NOTICE, "Flush pgn moves: %ld %s", strlen( moves_str), moves_str);
-	strcpy( tags_str, "");
-	strcpy( moves_str, "");
-	strcpy( roster_str, "");
-        strcpy( roster_hash, "");
-	}
+        {
+	flush_files();
+        }
 	;
 json:   BRACKET BRACKET NEWLINE
 	{
 	strcat( json_str, "[");
-	strcat( json_str, $2);
+	strcat( json_str, "]");
 	strcat( json_str, $3);
-        syslog( LOG_DEBUG, "Flush json: %ld %s", strlen( json_str), json_str);
-	strcpy( json_str, "");
+	}
+	|
+	BRACKET lan_str BRACKET NEWLINE
+	{
+	sprintf( tmp_str, "[%s]\n", json_str);
+	strcpy( json_str, tmp_str);
 	}
 	|
 	BRACKET lan_str NEWLINE
 	{
-	sprintf( tmp_str, "%s%s\n", $1, json_str);
+	sprintf( tmp_str, "[%s\n", json_str);
 	strcpy( json_str, tmp_str);
-        syslog( LOG_DEBUG, "bracket lan_str_newline");
 	}
 	|
 	json lan_str NEWLINE
 	{
 	strcat( json_str, $3);
-        syslog( LOG_DEBUG, "lan_str_newline '%s'", $3);
 	}
 	|
 	json lan_str BRACKET NEWLINE
 	{
-	sprintf( tmp_str, "%s%s\n", json_str, $3);
+	sprintf( tmp_str, "%s]\n", json_str);
 	strcpy( json_str, tmp_str);
-        syslog( LOG_DEBUG, "Flush json: %ld %s", strlen( json_str), json_str);
-	strcpy( json_str, "");
 	}
 	;
 lan_str: QUOTE
@@ -146,7 +101,7 @@ lan_str: QUOTE
 	strcat( json_str, $2);
 	}
 	;
-tags:   ROSTER NEWLINE
+tags:	ROSTER NEWLINE
 	{
 	strcat( tags_str, $1);
 	strcat( tags_str, $2);
@@ -156,12 +111,7 @@ tags:   ROSTER NEWLINE
 	token = strtok( NULL, "\"");
         syslog( LOG_DEBUG, "Value: %s", token);
 	strcat( roster_str, token);
-	}
-	|
-	TAG NEWLINE
-	{
-	strcat( tags_str, $1);
-	strcat( tags_str, $2);
+	strcat( roster_str, "|");
 	}
 	|
 	tags ROSTER NEWLINE
@@ -173,39 +123,35 @@ tags:   ROSTER NEWLINE
 	strtok( $2, "\"");
 	token = strtok( NULL, "\"");
         syslog( LOG_DEBUG, "Value: %s", token);
-	strcat( roster_str, "|");
 	strcat( roster_str, token);
-	}
-	|
-	tags HASHTAG NEWLINE
-	{
-	strcat( tags_str, $2);
-	strcat( tags_str, $3);
-
-	char *token=NULL;
-	strtok( $2, "\"");
-	token = strtok( NULL, "\"");
-        syslog( LOG_DEBUG, "Value: %s", token);
 	strcat( roster_str, "|");
-	strcat( roster_str, token);
-
-    // Compute tag roster hash
-    unsigned char result_hash[MD5_DIGEST_LENGTH];
-    MD5( (const unsigned char*)roster_str, strlen( roster_str), result_hash);
-    for( int i=0; i <MD5_DIGEST_LENGTH; i++) {
-        char var_str[3]="";
-        sprintf( var_str, "%02x",result_hash[i]);
-        strcat( roster_hash, var_str);
-    }
-
-        syslog( LOG_NOTICE, "Flush tags: %ld %s", strlen( roster_str), roster_str);
-        syslog( LOG_NOTICE, "Flush roster hash: %ld %s", strlen( roster_hash), roster_hash);
 	}
 	|
 	tags TAG NEWLINE
 	{
 	strcat( tags_str, $2);
 	strcat( tags_str, $3);
+	}
+	|
+	tags HASHTAG NEWLINE
+	{
+//	strcat( tags_str, $2);
+
+	char *token=NULL;
+	strtok( $2, "\"");
+	token = strtok( NULL, "\"");
+        syslog( LOG_DEBUG, "Value: %s", token);
+	strcpy( hashcode, token);
+	strcat( roster_str, token);
+
+	// Compute tag roster hash
+	unsigned char result_hash[MD5_DIGEST_LENGTH];
+	MD5( (const unsigned char*)roster_str, strlen( roster_str), result_hash);
+	for( int i=0; i <MD5_DIGEST_LENGTH; i++) {
+          char var_str[3]="";
+          sprintf( var_str, "%02x",result_hash[i]);
+          strcat( roster_hash, var_str);
+	}
 	}
 	;
 moves:  RESULT NEWLINE
@@ -334,3 +280,35 @@ int yywrap( void)
   return(1);
 }
 
+void flush_files( void) {
+  syslog( LOG_NOTICE, "Flush roster tags: %ld %s", strlen( roster_str), roster_str);
+  syslog( LOG_NOTICE, "Flush roster hash: %ld %s", strlen( roster_hash), roster_hash);
+  syslog( LOG_NOTICE, "Flush pgn tags: %ld %s", strlen( tags_str), tags_str);
+  syslog( LOG_NOTICE, "Flush pgn moves: %ld %s", strlen( moves_str), moves_str);
+  syslog( LOG_NOTICE, "Flush json: %ld %s", strlen( json_str), json_str);
+
+  FILE *fp;
+  char filename[64]="";
+  sprintf( filename, "%s.pgn", roster_hash);
+  fp = fopen( filename, "w+");
+  fprintf( fp, "%s", tags_str);
+  fclose( fp);
+
+  sprintf( filename, "%s.pgn", hashcode);
+  fp = fopen( filename, "w+");
+  fprintf( fp, "%s", moves_str);
+  fclose( fp);
+
+  sprintf( filename, "%s.json", hashcode);
+  fp = fopen( filename, "w+");
+  fprintf( fp, "%s", json_str);
+  fclose( fp);
+
+  strcpy( tags_str, "");
+  strcpy( moves_str, "");
+  strcpy( roster_str, "");
+  strcpy( roster_hash, "");
+  strcpy( json_str, "");
+
+  return;
+}
