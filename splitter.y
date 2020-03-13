@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <syslog.h>
 #include <string.h>
-#include <openssl/md5.h>
+#include <openssl/sha.h>
 
 // Try to get more verbose output from byacc
 #define YYERROR_VERBOSE 1
@@ -23,8 +23,8 @@ char json_str[BUFSIZ-4]="";
 char moves_str[BUFSIZ]="";
 char tags_str[BUFSIZ]="";
 char roster_str[BUFSIZ]="";
-char roster_hash[33]="";
-char hashcode[9]="";
+char roster_hash[65]="";
+char hashcode[65]="";
 
 void flush_files( void);
 
@@ -145,13 +145,14 @@ tags:	ROSTER NEWLINE
 	strcat( roster_str, token);
 
 	// Compute tag roster hash
-	unsigned char result_hash[MD5_DIGEST_LENGTH];
-	MD5( (const unsigned char*)roster_str, strlen( roster_str), result_hash);
-	for( int i=0; i <MD5_DIGEST_LENGTH; i++) {
-          char var_str[3]="";
-          sprintf( var_str, "%02x",result_hash[i]);
-          strcat( roster_hash, var_str);
-	}
+	unsigned char hash[SHA256_DIGEST_LENGTH];
+	SHA256_CTX sha256;
+	SHA256_Init(&sha256);
+	SHA256_Update(&sha256, roster_str, strlen(roster_str));
+	SHA256_Final(hash, &sha256);
+	for(int i = 0; i < SHA256_DIGEST_LENGTH; i++)
+          sprintf( roster_hash + (i * 2), "%02x", hash[i]);
+        roster_hash[64] = 0;
 	}
 	;
 moves:  RESULT NEWLINE
@@ -288,7 +289,7 @@ void flush_files( void) {
   syslog( LOG_NOTICE, "Flush json: %ld %s", strlen( json_str), json_str);
 
   FILE *fp;
-  char filename[64]="";
+  char filename[70]="";
   sprintf( filename, "%s.pgn", roster_hash);
   fp = fopen( filename, "w+");
   fprintf( fp, "%s", tags_str);

@@ -65,7 +65,7 @@ char k[80]="";
 //	    syslog( LOG_DEBUG, "Read space");
 //          return(SPACE);
 	}
-^\[HashCode\s\"[0-9a-f]{8}\"\]$ {
+^\[HashCode\s\"[0-9a-f]{64}\"\]$ {
 	    syslog( LOG_DEBUG, "Read hash tag: %s", yytext);
             strcpy(s, yytext); 
 	    yylval.s = s;
