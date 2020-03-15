@@ -27,7 +27,7 @@ char k[80]="";
 	    yylval.s = s;
             return(LAN);
 	}
-[a-h1-8pbnrqkPBNRQKxO=\+\-]+ {
+[a-h1-8pbnrqkPBNRQKxO#=\+\-]+ {
 	    syslog( LOG_DEBUG, "Read san: %s", yytext);
             strcpy(s, yytext); 
 	    yylval.s = s;
